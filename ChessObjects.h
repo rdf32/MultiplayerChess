@@ -3,10 +3,13 @@
 #include <string>
 
 struct Position {
-	int row;
-	int col;
 
 	Position(int rowVal, int colVal);
+
+	~Position() = default;
+
+	int row;
+	int col;
 };
 
 class Piece {
@@ -38,46 +41,41 @@ protected:
 
 };
 
-class Move {
-public:
-	enum class MoveType { STD, CASTLE, ENPES };
-
-protected:
-	Piece* piece;
-	Position from;
-	Position to;
-	MoveType moveType;
-
-};
-
-
 class Board {
 public:
 	Board(int rows, int cols);
 
 	virtual ~Board();
 
+	Piece* getPiece(const Position& pos);
+
+	void setPiece(Piece* piece, const Position& pos);
+
+	void removePiece(const Position& pos);
+
 	void initializeBoard();
 
 	void printBoard() const;
-	
-	void movePiece(const Position& from, const Position& to);
-
-	Piece* getPiece(const Position& pos);
 
 private:
 	int m_rows, m_cols;
-	Piece::Color m_turn;
-	std::vector<std::vector<Piece*>> m_board;
+	std::vector<std::vector<Piece*>> m_state;
 
 };
 
 class Game {
 public:
+	Game();
 
-protected:
+	virtual ~Game() = default;
 
+	void makeMove(Position& from, Position& to);
+
+	Board m_board;
+
+	
 private:
+	Piece::Color m_turn;
 	//std::vector<Move*> history;
 
 };
@@ -88,6 +86,18 @@ public:
 protected:
 
 private:
+
+};
+
+class Move {
+public:
+	enum class MoveType { STD, CASTLE, ENPES };
+
+protected:
+	Piece* piece;
+	Position from;
+	Position to;
+	MoveType moveType;
 
 };
 

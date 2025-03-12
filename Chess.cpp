@@ -16,12 +16,28 @@ void test_001() {
 }
 
 void test_002() {
-    Board chessBoard(8, 8);
-    chessBoard.printBoard();
-    chessBoard.movePiece(Position(6, 0), Position(5, 0));
-    chessBoard.printBoard();
+    Game chessGame;
+    chessGame.m_board.printBoard();
+    Position from = Position(6, 0);
+    Position to = Position(5, 0);
+    chessGame.makeMove(from, to);
+    std::cout << "" << std::endl;
+    chessGame.m_board.printBoard();
 
-    Piece* piece = chessBoard.getPiece(Position(5, 0));
+    Position from_1 = Position(5, 0);
+    Position to_1 = Position(4, 0);
+    chessGame.makeMove(from_1, to_1);
+    std::cout << "" << std::endl;
+    chessGame.m_board.printBoard();
+
+    Position from_2 = Position(1, 0);
+    Position to_2 = Position(2, 0);
+    chessGame.makeMove(from_2, to_2);
+    std::cout << "" << std::endl;
+    chessGame.m_board.printBoard();
+
+
+    Piece* piece = chessGame.m_board.getPiece(Position(5, 0));
     if (piece) {
         Position pieceLoc = piece->getPos();
         std::cout << pieceLoc.row << "," << pieceLoc.col << std::endl;
@@ -32,7 +48,7 @@ void test_002() {
     }
 
 
-    Piece* piece2 = chessBoard.getPiece(Position(0, 0));
+    Piece* piece2 = chessGame.m_board.getPiece(Position(0, 0));
 
     if (piece2) {
         Position pieceLoc2 = piece2->getPos();
@@ -42,10 +58,6 @@ void test_002() {
     else {
         std::cout << "null piece" << std::endl;
     }
-    
-
-   
-
    
 }
 
