@@ -61,9 +61,31 @@ void test_002() {
    
 }
 
+void test_003() {
+    Board chessBoard(8, 8);
+
+    std::vector<std::vector<Piece*>> state = chessBoard.getState();
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            if (state[i][j]) {
+                std::cout << state[i][j]->getIdent() << std::endl;
+                auto positions = state[i][j]->validMoves(state, nullptr);
+
+                for (auto& pos : positions) {
+                    std::cout << state[i][j]->getIdent() << " " << pos.first << " " << pos.second << std::endl;
+
+                }
+            }
+
+
+        }
+    }
+}
+
 int main() {
     //test_001();
-    test_002();
+    //test_002();
+    test_003();
 
 	return 0;
 }
