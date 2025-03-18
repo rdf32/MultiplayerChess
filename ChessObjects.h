@@ -29,8 +29,12 @@ struct Move {
 	Position m_from;   // Position from where the piece is moving
 	Position m_to;     // Position where the piece is moving to
 
+	// this should probably have more information
+	// all information to rebuild the piece if needed like color and type
+	// also might need to have from piece type and to piece type in the case of promotion
+
 	// Constructor definition
-	Move(Position to, Position from);
+	Move(Position from, Position to);
 
 	// Default destructor (optional)
 	~Move() = default;
@@ -151,32 +155,4 @@ private:
 	std::vector<std::vector<Piece*>> m_state;
 
 };
-
-class Game {
-public:
-	Game();
-
-	virtual ~Game() = default;
-
-	void makeMove(Position& from, Position& to);
-
-	Board m_board;
-
-
-private:
-	Piece::Color m_turn;
-	//std::vector<Move*> history;
-};
-
-
-
-//class Player {
-//public:
-//
-//protected:
-//
-//private:
-//
-//};
-//
 

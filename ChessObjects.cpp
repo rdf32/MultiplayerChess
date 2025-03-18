@@ -5,54 +5,7 @@
 // Constructor definition for Position
 Position::Position(int rowVal, int colVal) : row(rowVal), col(colVal) {}
 
-Move::Move(Position to, Position from): m_from(from), m_to(to) {}
-
-Game::Game() : m_board(8, 8), m_turn(Piece::Color::WHITE) {}
-
-void Game::makeMove(Position& from, Position& to) {
-    Piece* piece = m_board.getPiece(from);
-    if (piece) {
-        if (m_turn == piece->getColor()) {
-            // after each move need to check if put a king in check and or if checkmate was performed
-            // maybe create an attacked board -> binary 2d array stating if the location is attacked or not
-            // then check if the king square is attacked to see if in check
-            // can only make a move that isn't a king move if king isn't in check
-            // check if it is a valid move here as well
-            // check what type of move it is here looking for certain cases
-            // looking for en pessant, promotion, castling, or standard
-            // could maybe make a member function on all the pieces that returns the type of move
-            // call the member function moveType(Position& from, Position& to)
-            // if gonna make a validMoves() function for Piece -> could call it every time
-            // validMoves should create an internal set of current valid moves that could be checked against
-            // setPiece is called -> would just need to also use setPiece during initialize Board
-            // need to invalid to the move types
-            // then could set up a switch here with the default for standard moves
-            // then other cases for the other types of moves because some require moving two pieces
-            // need to handle promotions - but probably will have board handle this
-
-
-            m_board.removePiece(from);
-            m_board.setPiece(piece, to);
-            piece->setPos(to);
-            // Mark the piece as moved
-            //if (piece != nullptr) {
-            //    piece->setMoved();
-            //}
-
-            if (!piece->hasMoved()) {
-                piece->setMoved(true);
-            }
-            m_turn = m_turn == Piece::Color::WHITE ? Piece::Color::BLACK : Piece::Color::WHITE;
-        }
-        else {
-            std::cout << "That is not your piece or not your turn..." << std::endl;
-        }
-        
-    }
-    else {
-        std::cout << "No piece on that square..." << std::endl;
-    }
-}
+Move::Move(Position from, Position to): m_from(from), m_to(to) {}
 
 Board::Board(int rows, int cols) : m_rows(rows), m_cols(cols) {
     m_state.resize(rows, std::vector<Piece*>(cols, nullptr));
@@ -130,6 +83,7 @@ void Board::printBoard() const {
         }
         std::cout << std::endl;
     }
+    std::cout << " " << std::endl;
 }
 
 // Constructor definition for Piece Types
@@ -256,10 +210,22 @@ std::unordered_set<std::pair<int, int>, pair_hash> King::validMoves(std::vector<
         for (int j = 0; j < 8; j++) {
             Piece* piece = state[i][j];
             if (piece != nullptr && piece->getColor() != m_color) {
-                auto attackedPositions = piece->validMoves(state, lastMove);
-
+                std::unordered_set<std::pair<int, int>, pair_hash> attackedPositions;
+                if (piece->getType().type == Piece::PieceType::KING) {
+                    Position pos = piece->getPos();
+                    attackedPositions = {
+                        {pos.row, pos.col - 1}, {pos.row, pos.col + 1}, {pos.row - 1, pos.col}, {pos.row + 1, pos.col},
+                        {pos.row - 1, pos.col - 1}, {pos.row - 1, pos.col + 1}, {pos.row + 1, pos.col - 1}, {pos.row + 1, pos.col + 1}
+                    };
+                }
+                else {
+                    attackedPositions = piece->validMoves(state, lastMove);
+                }
+                
                 for (const auto& pos : attackedPositions) {
-                    squaresAttacked[pos.first][pos.second] = 1;
+                    if (pos.first >= 0 && pos.first < 8 && pos.second >= 0 && pos.second < 8) {
+                        squaresAttacked[pos.first][pos.second] = 1;
+                    }
                 }
             }
         }
