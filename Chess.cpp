@@ -2,6 +2,8 @@
 //
 #include <random>
 #include <iostream>
+#include <queue> 
+
 #include "ChessObjects.h"
 
 class Player {
@@ -11,13 +13,25 @@ public:
     ~Player() = default;
     Piece::Color getColor();
     void setColor(Piece::Color color);
+    Piece::Color getColor();
+    void setCheck(Board state);
+    bool getCheck();
+    void setCheckmate(Board state);
+    bool getCheckmate();
+    void setKingpos(Position& pos);
+    Position getKingpos();
+    std::unordered_set<std::pair<int, int>, pair_hash> allValidMoves();
 
 private:
     Piece::Color m_color;
+    std::queue<Move*> moveQueue;
+    Position kingPos;
+    bool inCheck;
+    bool inCheckmate;
 
 };
 
-Player::Player(): m_color(Piece::Color::WHITE) {}
+Player::Player(): m_color(Piece::Color::WHITE), kingPos(Position(0, 0)), inCheck(false), inCheckmate(false) {}
 
 Piece::Color Player::getColor() {
     return m_color;
@@ -43,7 +57,9 @@ public:
 
 private:
     Piece::Color m_turn;
-    std::vector<Move*> history;
+    std::vector<Move> history;
+    Player whitePieces;
+    Player blackPieces;
 };
 
 Game::Game(Player& player_1, Player& player_2) : m_board(8, 8), m_turn(Piece::Color::WHITE), history(NULL) {
@@ -55,13 +71,37 @@ Game::Game(Player& player_1, Player& player_2) : m_board(8, 8), m_turn(Piece::Co
     Piece::Color player1Color = (dis(gen) == 0) ? Piece::Color::WHITE : Piece::Color::BLACK;
     Piece::Color player2Color = (player1Color == Piece::Color::WHITE) ? Piece::Color::BLACK : Piece::Color::WHITE;
 
-    player_1.setColor(player1Color);
-    player_2.setColor(player2Color);
+    Position player_1_kp = (player1Color == Piece::Color::WHITE) ? Position(7, 4) : Position(0, 4);
+    Position player_2_kp = (player2Color == Piece::Color::WHITE) ? Position(7, 4) : Position(0, 4);
 
+    player_1.setColor(player1Color);
+    player_1.setKingpos(player_1_kp);
+    player_2.setColor(player2Color);
+    player_1.setKingpos(player_2_kp);
+
+    whitePieces = (player1Color == Piece::Color::WHITE) ? player_1 : player_2;
+    blackPieces = (player1Color == Piece::Color::BLACK) ? player_1 : player_2;
 }
+
+// request moves from whitePieces or blackPieces
+// push move onto their queue
+// check whos turn it is
+// pop move off player whos turn it is
+// get all their valid moves
+    // to get valid moves check if they are in checkmate
+        // if they are in checkmate (current board state) return no valid moves: game ends
+        // check if they are in check (current board state)
+        // determine if it is double check
+        // if they are in check return only valid moves that can be made while in check
+// if their move is valid, perform the move 
+// push the move onto the move history stack and change the turn to the other player
+// if the move is not valid, pop another move from the queue or prompt another input (start from top)
+// if the move is a king, update king position of respective player
+
 
 void Game::playGame() {
     while (true) {
+
         int startRow, startCol, endRow, endCol;
         m_board.printBoard();
 
@@ -88,6 +128,8 @@ void Game::playGame() {
 
         makeMove(move);
         m_board.printBoard();
+
+        // if move is a king, make sure to update king position for respective player
 
 
     }
@@ -173,6 +215,7 @@ void test_002() {
 
 int main() {
 
-    test_002();
+    //test_002();
+    test_001();
 	return 0;
 }
