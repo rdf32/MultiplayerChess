@@ -117,21 +117,6 @@ void Board::initializeBoard() {// Place pawns for both colors
     }
 }
 
-//void Board::printBoard() const {
-//    for (int i = 0; i < m_rows; ++i) {
-//        for (int j = 0; j < m_cols; ++j) {
-//            if (m_state[i][j]) {
-//                std::cout << (m_state[i][j]->getColor() == Piece::Color::WHITE ? "W" : "B") << m_state[i][j]->getIdent() << " ";
-//            }
-//            else {
-//                std::cout << " . ";  // Empty square
-//            }
-//        }
-//        std::cout << std::endl;
-//    }
-//    std::cout << " " << std::endl;
-//}
-
 void Board::printBoard() const {
     // Print the column numbers at the top
     std::cout << "   ";

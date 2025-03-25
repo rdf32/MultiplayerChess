@@ -425,7 +425,7 @@ void Game::makeMove(Player& currentPlayer, Move& move) {
 //    }
 //}
 
-return positions;
+//return positions;
 
 
 
