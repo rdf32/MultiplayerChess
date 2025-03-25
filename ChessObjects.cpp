@@ -5,7 +5,53 @@
 // Constructor definition for Position
 Position::Position(int rowVal, int colVal) : row(rowVal), col(colVal) {}
 
+bool Position::operator==(const Position& other) const {
+    return row == other.row && col == other.col;
+}
+
+std::ostream& operator<<(std::ostream& os, const Position& pos) {
+    os << "(" << pos.row << ", " << pos.col << ")";
+    return os;
+}
+
+//// PositionHash function definition
+//size_t position_hash::operator()(const Position& pos) const {
+//    // Combine row and col hashes (using XOR and shifting)
+//    return std::hash<int>()(pos.row) ^ (std::hash<int>()(pos.col) << 1);
+//
+//}
+
+std::size_t position_hash::operator()(const Position& p) const {
+        // Hash the row and col individually
+        auto h1 = std::hash<int>{}(p.row);  // Hash of the row
+        auto h2 = std::hash<int>{}(p.col);  // Hash of the col
+
+        // Combine the two hash values (XOR and shift)
+        return h1 ^ (h2 << 1);  // XOR the hashes and shift the second hash
+    }
+
+
 Move::Move(Position from, Position to): m_from(from), m_to(to) {}
+
+//size_t move_hash::operator()(const Move& move) const {
+//    // Combine the hashes of m_from and m_to (Position)
+//    size_t hash_from = position_hash()(move.m_from);  // Use the PositionHash for m_from
+//    size_t hash_to = position_hash()(move.m_to);      // Use the PositionHash for m_to
+//
+//    // Combine both hashes (using XOR and shifting)
+//    return hash_from ^ (hash_to << 1);  // You can also use other methods of combining hashes
+//}
+
+//struct move_hash {
+//    size_t operator()(const Move& move) const {
+//        // Combine the hashes of m_from and m_to (Position)
+//        size_t hash_from = position_hash()(move.m_from);  // Use the PositionHash for m_from
+//        size_t hash_to = position_hash()(move.m_to);      // Use the PositionHash for m_to
+//
+//        // Combine both hashes (using XOR and shifting)
+//        return hash_from ^ (hash_to << 1);  // XOR the hashes and shift the second hash
+//    }
+//};
 
 Board::Board(int rows, int cols) : m_rows(rows), m_cols(cols) {
     m_state.resize(rows, std::vector<Piece*>(cols, nullptr));
@@ -71,11 +117,38 @@ void Board::initializeBoard() {// Place pawns for both colors
     }
 }
 
+//void Board::printBoard() const {
+//    for (int i = 0; i < m_rows; ++i) {
+//        for (int j = 0; j < m_cols; ++j) {
+//            if (m_state[i][j]) {
+//                std::cout << (m_state[i][j]->getColor() == Piece::Color::WHITE ? "W" : "B") << m_state[i][j]->getIdent() << " ";
+//            }
+//            else {
+//                std::cout << " . ";  // Empty square
+//            }
+//        }
+//        std::cout << std::endl;
+//    }
+//    std::cout << " " << std::endl;
+//}
+
 void Board::printBoard() const {
+    // Print the column numbers at the top
+    std::cout << "   ";
+    for (int j = 0; j < m_cols; ++j) {
+        std::cout << j << "  ";
+    }
+    std::cout << std::endl;
+
+    // Print each row with the row number on the left side
     for (int i = 0; i < m_rows; ++i) {
+        // Print the row number
+        std::cout << i << "  ";
+
         for (int j = 0; j < m_cols; ++j) {
             if (m_state[i][j]) {
-                std::cout << (m_state[i][j]->getColor() == Piece::Color::WHITE ? "W" : "B") << m_state[i][j]->getIdent() << " ";
+                std::cout << (m_state[i][j]->getColor() == Piece::Color::WHITE ? "W" : "B")
+                    << m_state[i][j]->getIdent() << " ";
             }
             else {
                 std::cout << " . ";  // Empty square

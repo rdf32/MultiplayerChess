@@ -18,11 +18,20 @@ struct pair_hash {
 
 struct Position {
 
+	int row;
+	int col;
+
 	Position(int rowVal, int colVal);
 	~Position() = default;
 
-	int row;
-	int col;
+	bool operator==(const Position& other) const;
+
+	friend std::ostream& operator<<(std::ostream& os, const Position& pos);
+
+};
+
+struct position_hash {
+	size_t operator()(const Position& pos) const;
 };
 
 struct Move {
@@ -40,6 +49,10 @@ struct Move {
 	~Move() = default;
 
 };
+
+//struct move_hash {
+//	size_t operator()(const Move& move) const;
+//};
 
 class Piece {
 
