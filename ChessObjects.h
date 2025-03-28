@@ -34,6 +34,22 @@ struct position_hash {
 	size_t operator()(const Position& pos) const;
 };
 
+struct PositionType {
+
+	enum class MoveType { STND, CAPT, QCASTLE, KCASTLE, PROM, ENPASS };
+	std::pair<int, int> pair;
+	MoveType mtype;
+
+	PositionType(std::pair<int, int> pair, MoveType mtype);
+	~PositionType() = default;
+
+	bool operator==(const PositionType& other) const;
+
+};
+struct positionType_hash {
+	size_t operator()(const PositionType& posType) const;
+};
+
 struct Move {
 	Position m_from;   // Position from where the piece is moving
 	Position m_to;     // Position where the piece is moving to
@@ -67,7 +83,7 @@ public:
 
 	virtual ~Piece() = default;
 
-	virtual std::unordered_set<std::pair<int, int>, pair_hash> validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove = nullptr) = 0;
+	virtual std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove = nullptr) = 0;
 
 	virtual PieceType getType() const = 0;
 
@@ -96,7 +112,7 @@ class Pawn : public Piece {
 public:
 	// Constructor for Pawn
 	Pawn(Color color, std::string ident = "P");
-	std::unordered_set<std::pair<int, int>, pair_hash> validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
 	PieceType getType() const override;
 };
 
@@ -105,7 +121,7 @@ class King : public Piece {
 public:
 	// Constructor for King
 	King(Color color, std::string ident = "K");
-	std::unordered_set<std::pair<int, int>, pair_hash> validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
 	PieceType getType() const override;
 };
 
@@ -114,7 +130,7 @@ class Queen : public Piece {
 public:
 	// Constructor for Queen
 	Queen(Color color, std::string ident = "Q");
-	std::unordered_set<std::pair<int, int>, pair_hash> validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
 	PieceType getType() const override;
 };
 
@@ -123,7 +139,7 @@ class Rook : public Piece {
 public:
 	// Constructor for Rook
 	Rook(Color color, std::string ident = "R");
-	std::unordered_set<std::pair<int, int>, pair_hash> validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
 	PieceType getType() const override;
 };
 
@@ -132,7 +148,7 @@ class Bishop : public Piece {
 public:
 	// Constructor for Pawn
 	Bishop(Color color, std::string ident = "B");
-	std::unordered_set<std::pair<int, int>, pair_hash> validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
 	PieceType getType() const override;
 };
 
@@ -141,7 +157,7 @@ class Knight : public Piece {
 public:
 	// Constructor for Knight
 	Knight(Color color, std::string ident = "N");
-	std::unordered_set<std::pair<int, int>, pair_hash> validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
 	PieceType getType() const override;
 };
 

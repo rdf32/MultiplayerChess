@@ -14,13 +14,6 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
     return os;
 }
 
-//// PositionHash function definition
-//size_t position_hash::operator()(const Position& pos) const {
-//    // Combine row and col hashes (using XOR and shifting)
-//    return std::hash<int>()(pos.row) ^ (std::hash<int>()(pos.col) << 1);
-//
-//}
-
 std::size_t position_hash::operator()(const Position& p) const {
         // Hash the row and col individually
         auto h1 = std::hash<int>{}(p.row);  // Hash of the row
@@ -28,30 +21,22 @@ std::size_t position_hash::operator()(const Position& p) const {
 
         // Combine the two hash values (XOR and shift)
         return h1 ^ (h2 << 1);  // XOR the hashes and shift the second hash
-    }
+}
 
+PositionType::PositionType(std::pair<int, int> npair, PositionType::MoveType nmtype) : pair(npair), mtype(nmtype) {}
+
+bool PositionType::operator==(const PositionType& other) const {
+    return pair.first == other.pair.first && pair.second == other.pair.second && mtype == other.mtype;
+}
+
+std::size_t positionType_hash::operator()(const PositionType& ptype) const {
+
+    size_t posHash = pair_hash()(ptype.pair);
+    size_t mtypeHash = std::hash<int>()(static_cast<int>(ptype.mtype));
+    return posHash ^ (mtypeHash << 1);
+}
 
 Move::Move(Position from, Position to): m_from(from), m_to(to) {}
-
-//size_t move_hash::operator()(const Move& move) const {
-//    // Combine the hashes of m_from and m_to (Position)
-//    size_t hash_from = position_hash()(move.m_from);  // Use the PositionHash for m_from
-//    size_t hash_to = position_hash()(move.m_to);      // Use the PositionHash for m_to
-//
-//    // Combine both hashes (using XOR and shifting)
-//    return hash_from ^ (hash_to << 1);  // You can also use other methods of combining hashes
-//}
-
-//struct move_hash {
-//    size_t operator()(const Move& move) const {
-//        // Combine the hashes of m_from and m_to (Position)
-//        size_t hash_from = position_hash()(move.m_from);  // Use the PositionHash for m_from
-//        size_t hash_to = position_hash()(move.m_to);      // Use the PositionHash for m_to
-//
-//        // Combine both hashes (using XOR and shifting)
-//        return hash_from ^ (hash_to << 1);  // XOR the hashes and shift the second hash
-//    }
-//};
 
 Board::Board(int rows, int cols) : m_rows(rows), m_cols(cols) {
     m_state.resize(rows, std::vector<Piece*>(cols, nullptr));
@@ -180,7 +165,7 @@ Piece::PieceType Pawn::getType() const {
     return { PieceType::PAWN };
 }
 
-std::unordered_set<std::pair<int, int>, pair_hash> Pawn::validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) {
+std::unordered_set<PositionType, positionType_hash> Pawn::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
 
     // need to check for:
     // first move : move one square or two
@@ -193,7 +178,7 @@ std::unordered_set<std::pair<int, int>, pair_hash> Pawn::validMoves(std::vector<
     //    Captures : Check diagonals for opponent pieces to capture.
     //    En passant : Handle this only if the pawn's last move was a two-square move and it is adjacent to an opponent's pawn.
 
-    std::unordered_set<std::pair<int, int>, pair_hash> positions;
+    std::unordered_set<PositionType, positionType_hash> positions;
 
     int direction = (m_color == Piece::Color::WHITE) ? -1 : 1;  // White moves up, black moves down
 
@@ -201,13 +186,13 @@ std::unordered_set<std::pair<int, int>, pair_hash> Pawn::validMoves(std::vector<
     int col = m_pos.col;
 
     if (row >= 0 && row < 8 && col >= 0 && col < 8 && state[row][col] == nullptr) {
-        positions.insert({ row, col });
+        positions.insert({ { row, col }, PositionType::MoveType::STND });
     }
 
     if (!m_moved) {
         row = m_pos.row + 2 * direction;
         if (row >= 0 && row < 8 && col >= 0 && col < 8 && state[row][col] == nullptr) {
-            positions.insert({ row, col }); // double move if pawn has not moved
+            positions.insert({ { row, col }, PositionType::MoveType::STND }); // double move if pawn has not moved
         }
     }
 
@@ -221,7 +206,7 @@ std::unordered_set<std::pair<int, int>, pair_hash> Pawn::validMoves(std::vector<
         if (row >= 0 && row < 8 && col >= 0 && col < 8) {
             Piece* pieceAtNewPos = state[row][col];
             if (pieceAtNewPos != nullptr && pieceAtNewPos->getColor() != m_color) {
-                positions.insert({ row, col }); // diagonal captures
+                positions.insert({ { row, col }, PositionType::MoveType::CAPT }); // diagonal captures
             }
         }
     }
@@ -234,7 +219,7 @@ std::unordered_set<std::pair<int, int>, pair_hash> Pawn::validMoves(std::vector<
         if ((m_pos.col + 1 == lastMove->m_to.col) || (m_pos.col - 1 == lastMove->m_to.col)) {
             row = m_pos.row + direction;
             col = lastMove->m_to.col;
-            positions.insert({ row, col });
+            positions.insert({ { row, col }, PositionType::MoveType::ENPASS });
         }
     }
 
@@ -247,14 +232,14 @@ Piece::PieceType King::getType() const {
     return { PieceType::KING };
 }
 
-std::unordered_set<std::pair<int, int>, pair_hash> King::validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) {
+std::unordered_set<PositionType, positionType_hash> King::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
 
     //The king and the rook involved must not have moved yet.
     //    There must be no pieces between the king and the rook.
     //    The king must not be in check.
     //    The king must not pass through a square that is attacked by an enemy piece.
     //    The king must not end up in check after castling.
-    std::unordered_set<std::pair<int, int>, pair_hash> positions;
+    std::unordered_set<PositionType, positionType_hash> positions;
 
     std::vector<std::pair<int, int>> directions = {
             {-1, -1}, {-1, 0}, {-1, 1},
@@ -268,12 +253,14 @@ std::unordered_set<std::pair<int, int>, pair_hash> King::validMoves(std::vector<
         for (int j = 0; j < 8; j++) {
             Piece* piece = state[i][j];
             if (piece != nullptr && piece->getColor() != m_color) {
-                std::unordered_set<std::pair<int, int>, pair_hash> attackedPositions;
+                std::unordered_set<PositionType, positionType_hash> attackedPositions;
                 if (piece->getType().type == Piece::PieceType::KING) {
                     Position pos = piece->getPos();
                     attackedPositions = {
-                        {pos.row, pos.col - 1}, {pos.row, pos.col + 1}, {pos.row - 1, pos.col}, {pos.row + 1, pos.col},
-                        {pos.row - 1, pos.col - 1}, {pos.row - 1, pos.col + 1}, {pos.row + 1, pos.col - 1}, {pos.row + 1, pos.col + 1}
+                        {{pos.row, pos.col - 1}, PositionType::MoveType::STND }, {{ pos.row, pos.col + 1 }, PositionType::MoveType::STND }, 
+                        {{ pos.row - 1, pos.col }, PositionType::MoveType::STND }, {{ pos.row + 1, pos.col }, PositionType::MoveType::STND },
+                        {{pos.row - 1, pos.col - 1}, PositionType::MoveType::STND }, {{pos.row - 1, pos.col + 1}, PositionType::MoveType::STND }, 
+                        {{pos.row + 1, pos.col - 1}, PositionType::MoveType::STND }, {{pos.row + 1, pos.col + 1}, PositionType::MoveType::STND}
                     };
                 }
                 else {
@@ -281,8 +268,8 @@ std::unordered_set<std::pair<int, int>, pair_hash> King::validMoves(std::vector<
                 }
                 
                 for (const auto& pos : attackedPositions) {
-                    if (pos.first >= 0 && pos.first < 8 && pos.second >= 0 && pos.second < 8) {
-                        squaresAttacked[pos.first][pos.second] = 1;
+                    if (pos.pair.first >= 0 && pos.pair.first < 8 && pos.pair.second >= 0 && pos.pair.second < 8) {
+                        squaresAttacked[pos.pair.first][pos.pair.second] = 1;
                     }
                 }
             }
@@ -296,8 +283,11 @@ std::unordered_set<std::pair<int, int>, pair_hash> King::validMoves(std::vector<
         // Check if the position is within bounds
         if (r >= 0 && r < 8 && c >= 0 && c < 8 && !squaresAttacked[r][c]) {
             Piece* pieceAtNewPos = state[r][c];
-            if (pieceAtNewPos == nullptr || pieceAtNewPos->getColor() != m_color) {
-                positions.insert({ r, c }); // Empty square, valid move or enemy piece
+            if (pieceAtNewPos == nullptr ) {
+                positions.insert({ { r, c }, PositionType::MoveType::STND }); // Empty square, valid move or enemy piece
+            }
+            else if (pieceAtNewPos->getColor() != m_color) {
+                positions.insert({ { r, c }, PositionType::MoveType::CAPT });
             }
         }
     }
@@ -311,7 +301,7 @@ std::unordered_set<std::pair<int, int>, pair_hash> King::validMoves(std::vector<
             !squaresAttacked[m_pos.row][5] &&
             !squaresAttacked[m_pos.row][6]) {
 
-            positions.insert({ m_pos.row, m_pos.col + 2 });  // King-side castling
+            positions.insert({ { m_pos.row, m_pos.col + 2 }, PositionType::MoveType::KCASTLE });  // King-side castling
         }
 
         if (state[m_pos.row][0] &&
@@ -322,7 +312,7 @@ std::unordered_set<std::pair<int, int>, pair_hash> King::validMoves(std::vector<
             !squaresAttacked[m_pos.row][2] &&
             !squaresAttacked[m_pos.row][3]) {
 
-            positions.insert({ m_pos.row, m_pos.col - 2 });  // Queen-side castling
+            positions.insert({ { m_pos.row, m_pos.col - 2 }, PositionType::MoveType::QCASTLE });  // Queen-side castling
         }
     }
     return positions;
@@ -334,9 +324,9 @@ Piece::PieceType Queen::getType() const {
     return { PieceType::QUEEN };
 }
 
-std::unordered_set<std::pair<int, int>, pair_hash> Queen::validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) {
+std::unordered_set<PositionType, positionType_hash> Queen::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
 
-    std::unordered_set<std::pair<int, int>, pair_hash> positions;
+    std::unordered_set<PositionType, positionType_hash> positions;
     
     std::vector<std::pair<int, int>> directions = {
         {-1, 0}, {1, 0}, {0, -1}, {0, 1},
@@ -359,10 +349,10 @@ std::unordered_set<std::pair<int, int>, pair_hash> Queen::validMoves(std::vector
             // Check the piece at the new position
             Piece* pieceAtNewPos = state[r][c];
             if (pieceAtNewPos == nullptr) {
-                positions.insert({ r, c }); // Empty square, valid move
+                positions.insert({ { r, c }, PositionType::MoveType::STND }); // Empty square, valid move
             }
             else if (pieceAtNewPos->getColor() != m_color) {
-                positions.insert({ r, c }); // Opponent piece, valid capture
+                positions.insert({ { r, c }, PositionType::MoveType::CAPT }); // Opponent piece, valid capture
                 break; // Stop moving after capturing
             }
             else if (pieceAtNewPos->getColor() == m_color) {
@@ -380,9 +370,9 @@ Piece::PieceType Rook::getType() const {
     return { PieceType::ROOK };
 }
 
-std::unordered_set<std::pair<int, int>, pair_hash> Rook::validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) {
+std::unordered_set<PositionType, positionType_hash> Rook::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
 
-    std::unordered_set<std::pair<int, int>, pair_hash> positions;
+    std::unordered_set<PositionType, positionType_hash> positions;
 
     std::vector<std::pair<int, int>> directions = {
         {-1, 0}, {1, 0}, {0, 1}, {0, -1}
@@ -404,10 +394,10 @@ std::unordered_set<std::pair<int, int>, pair_hash> Rook::validMoves(std::vector<
             // Check the piece at the new position
             Piece* pieceAtNewPos = state[r][c];
             if (pieceAtNewPos == nullptr) {
-                positions.insert({ r, c }); // Empty square, valid move
+                positions.insert({ { r, c }, PositionType::MoveType::STND }); // Empty square, valid move
             }
             else if (pieceAtNewPos->getColor() != m_color) {
-                positions.insert({ r, c }); // Opponent piece, valid capture
+                positions.insert({ { r, c }, PositionType::MoveType::CAPT }); // Opponent piece, valid capture
                 break; // Stop moving after capturing
             }
             else if (pieceAtNewPos->getColor() == m_color) {
@@ -425,9 +415,9 @@ Piece::PieceType Bishop::getType() const {
     return { PieceType::BISHOP };
 }
 
-std::unordered_set<std::pair<int, int>, pair_hash> Bishop::validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) {
+std::unordered_set<PositionType, positionType_hash> Bishop::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
     
-    std::unordered_set<std::pair<int, int>, pair_hash> positions;
+    std::unordered_set<PositionType, positionType_hash> positions;
     
     std::vector<std::pair<int, int>> directions = {
         {-1, -1}, {-1, 1}, {1, -1}, {1, 1}
@@ -449,10 +439,10 @@ std::unordered_set<std::pair<int, int>, pair_hash> Bishop::validMoves(std::vecto
             // Check the piece at the new position
             Piece* pieceAtNewPos = state[r][c];
             if (pieceAtNewPos == nullptr) {
-                positions.insert({ r, c }); // Empty square, valid move
+                positions.insert({ { r, c }, PositionType::MoveType::STND }); // Empty square, valid move
             }
             else if (pieceAtNewPos->getColor() != m_color) {
-                positions.insert({ r, c }); // Opponent piece, valid capture
+                positions.insert({ { r, c }, PositionType::MoveType::CAPT }); // Opponent piece, valid capture
                 break; // Stop moving after capturing
             }
             else if (pieceAtNewPos->getColor() == m_color) {
@@ -471,9 +461,9 @@ Piece::PieceType Knight::getType() const {
     return { PieceType::KNIGHT };
 }
 
-std::unordered_set<std::pair<int, int>, pair_hash> Knight::validMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) {
+std::unordered_set<PositionType, positionType_hash> Knight::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
 
-    std::unordered_set<std::pair<int, int>, pair_hash> positions;
+    std::unordered_set<PositionType, positionType_hash> positions;
 
     std::vector<std::pair<int, int>> directions = {
         {-2, 1}, {-2, -1}, {2, -1}, {2, 1},  // Vertical L-shapes
@@ -493,10 +483,10 @@ std::unordered_set<std::pair<int, int>, pair_hash> Knight::validMoves(std::vecto
         // Check the piece at the new position
         Piece* pieceAtNewPos = state[r][c];
         if (pieceAtNewPos == nullptr) {
-            positions.insert({ r, c }); // Empty square, valid move
+            positions.insert({ { r, c }, PositionType::MoveType::STND }); // Empty square, valid move
         }
         else if (pieceAtNewPos->getColor() != m_color) {
-            positions.insert({ r, c }); // Opponent piece, valid capture
+            positions.insert({ { r, c }, PositionType::MoveType::CAPT }); // Opponent piece, valid capture
         }
         else if (pieceAtNewPos->getColor() == m_color) {
             // Friendly piece blocks the move

@@ -17,8 +17,8 @@ public:
     void setColor(Piece::Color color);
     Position getKingpos();
     void setKingpos(Position& pos);
-    std::vector<Piece*> attackingPieces(std::vector<std::vector<Piece*>>& state);
-    std::unordered_map<Position, std::unordered_set<Position, position_hash>, position_hash> legalMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove);
+    std::vector<Piece*> attackingPieces(const std::vector<std::vector<Piece*>>& state);
+    std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>, position_hash> legalMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove);
 
 
 
@@ -47,7 +47,7 @@ void Player::setKingpos(Position& pos) {
 }
 
 // some sort of bug in this function
-std::vector<Piece*> Player::attackingPieces(std::vector<std::vector<Piece*>>& state) {
+std::vector<Piece*> Player::attackingPieces(const std::vector<std::vector<Piece*>>& state) {
     std::vector<Piece*> piecesAttacking;
 
     Position kingPos = getKingpos();
@@ -174,14 +174,14 @@ std::vector<Piece*> Player::attackingPieces(std::vector<std::vector<Piece*>>& st
 
     return piecesAttacking;
 }
-std::unordered_map<Position, std::unordered_set<Position, position_hash>, position_hash> Player::legalMoves(std::vector<std::vector<Piece*>>& state, Move* lastMove) {
-    
-    std::unordered_map<Position, std::unordered_set<Position, position_hash>, position_hash> legalPieceMoves;
+std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>, position_hash> Player::legalMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
+
+    std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>, position_hash> legalPieceMoves;
     std::vector<Piece*> piecesAttacking = attackingPieces(state);
     std::cout << "number of attacking pieces: " << piecesAttacking.size() << std::endl;
 
     Position kingPos = getKingpos();
-    for (int i = 0; i < piecesAttacking.size(); i++) {
+    for (size_t i = 0; i < piecesAttacking.size(); i++) {
         std::cout << "Piece attacking: " << piecesAttacking[i]->getIdent() << (piecesAttacking[i]->getColor() == Piece::Color::WHITE ? "W" : "B") << std::endl;
     }
 
@@ -194,10 +194,8 @@ std::unordered_map<Position, std::unordered_set<Position, position_hash>, positi
                 }
                 else if (piece->getColor() == m_color) {
                     Position from_pos = piece->getPos();
-                    std::unordered_set<std::pair<int, int>, pair_hash> pieceMoves = piece->validMoves(state, lastMove);
-                    for (const auto& pair : pieceMoves) {
-                        legalPieceMoves[from_pos].insert(Position(pair.first, pair.second));
-                    }
+                    std::unordered_set<PositionType, positionType_hash> pieceMoves = piece->validMoves(state, lastMove);
+                    legalPieceMoves[from_pos].insert(pieceMoves.begin(), pieceMoves.end());
                 }
             }
         }
@@ -205,8 +203,10 @@ std::unordered_map<Position, std::unordered_set<Position, position_hash>, positi
     else if (piecesAttacking.size() == 1) {
         std::unordered_set<std::pair<int, int>, pair_hash> attackedSquares;
         for (const auto& piece : piecesAttacking) {
-            std::unordered_set<std::pair<int, int>, pair_hash> attPieceMoves = piece->validMoves(state, lastMove);
-            attackedSquares.insert(attPieceMoves.begin(), attPieceMoves.end());
+            std::unordered_set<PositionType, positionType_hash> attPieceMoves = piece->validMoves(state, lastMove);
+            for (auto& pos : attPieceMoves) {
+                attackedSquares.insert(pos.pair);
+            }
         }
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
@@ -216,14 +216,14 @@ std::unordered_map<Position, std::unordered_set<Position, position_hash>, positi
                 }
                 else if (piece->getColor() == m_color) {
                     Position from_pos = piece->getPos();
-                    std::unordered_set<std::pair<int, int>, pair_hash> pieceMoves = piece->validMoves(state, lastMove);
-                    for (const auto& pair : pieceMoves) {
+                    std::unordered_set<PositionType, positionType_hash> pieceMoves = piece->validMoves(state, lastMove);
+                    for (const auto& pos : pieceMoves) {
                         if (piece->getType().type == Piece::PieceType::KING) {
-                            legalPieceMoves[from_pos].insert(Position(pair.first, pair.second));
+                            legalPieceMoves[from_pos].insert(pos);
                         }
                         else {
-                            if (attackedSquares.find(pair) != attackedSquares.end()) {
-                                legalPieceMoves[from_pos].insert(Position(pair.first, pair.second));
+                            if (attackedSquares.find(pos.pair) != attackedSquares.end()) {
+                                legalPieceMoves[from_pos].insert(pos);
                             }
                         }
                     }
@@ -234,10 +234,8 @@ std::unordered_map<Position, std::unordered_set<Position, position_hash>, positi
     else if (piecesAttacking.size() > 1) {
         Piece* piece = state[kingPos.row][kingPos.col];
         Position from_pos = piece->getPos();
-        std::unordered_set<std::pair<int, int>, pair_hash> pieceMoves = piece->validMoves(state, lastMove);
-        for (const auto& pair : pieceMoves) {
-            legalPieceMoves[from_pos].insert(Position(pair.first, pair.second));
-        }
+        std::unordered_set<PositionType, positionType_hash> pieceMoves = piece->validMoves(state, lastMove);
+        legalPieceMoves[from_pos].insert(pieceMoves.begin(), pieceMoves.end());
     }
 
     return legalPieceMoves;
@@ -249,7 +247,7 @@ public:
 
     virtual ~Game() = default;
 
-    void makeMove(Player& currentPlayer, Move& move);
+    void makeMove(Player& currentPlayer, Move& move, PositionType::MoveType mtype, Move* lastMove);
 
     void playGame();
 
@@ -341,11 +339,11 @@ void Game::addMoveToHistory(const Move& move) {
 //Player whitePieces;
 //Player blackPieces;
 
-void printLegalMoves(const std::unordered_map<Position, std::unordered_set<Position, position_hash>, position_hash>& legalMoves) {
+void printLegalMoves(const std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>, position_hash>& legalMoves) {
     // Iterate through the map
     for (const auto& entry : legalMoves) {
         const Position& key = entry.first;
-        const std::unordered_set<Position, position_hash>& valueSet = entry.second;
+        const std::unordered_set<PositionType, positionType_hash>& valueSet = entry.second;
 
         // Print the key (Position)
         std::cout << "Key: " << key << " -> ";
@@ -353,7 +351,7 @@ void printLegalMoves(const std::unordered_map<Position, std::unordered_set<Posit
         // Print the values (set of Positions)
         std::cout << "Values: { ";
         for (const auto& pos : valueSet) {
-            std::cout << pos << " ";
+            std::cout << "(" << pos.pair.first << ", " << pos.pair.second << ")" << " ";
         }
         std::cout << "}" << std::endl;
     }
@@ -366,7 +364,7 @@ void Game::playGame() {
 
         std::vector<std::vector<Piece*>> gameState = getState();
         Move* lastMove = getLastMove();
-        std::unordered_map<Position, std::unordered_set<Position, position_hash>, position_hash> legalMoves = currentPlayer.legalMoves(gameState, lastMove);
+        std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>, position_hash> legalMoves = currentPlayer.legalMoves(gameState, lastMove);
 
 
         printLegalMoves(legalMoves);
@@ -387,31 +385,96 @@ void Game::playGame() {
         Position toPos(endRow, endCol);
 
         if (legalMoves.find(fromPos) != legalMoves.end()) {
-            if (legalMoves[fromPos].find(toPos) != legalMoves[fromPos].end()) {
-                Move move(fromPos, toPos);
-                makeMove(currentPlayer, move);
-                addMoveToHistory(move);
-                m_turn = (m_turn == Piece::Color::WHITE) ? Piece::Color::BLACK : Piece::Color::WHITE;
-
+            for (const auto& pos : legalMoves[fromPos]) {
+                if (pos.pair.first == toPos.row && pos.pair.second == toPos.col) {
+                    Move move(fromPos, toPos);
+                    makeMove(currentPlayer, move, pos.mtype, lastMove);
+                    addMoveToHistory(move);
+                    m_turn = (m_turn == Piece::Color::WHITE) ? Piece::Color::BLACK : Piece::Color::WHITE;
+                    break;
+                }
             }
         }
     }
 }
 
-void Game::makeMove(Player& currentPlayer, Move& move) {
-        Piece* piece = m_board.getPiece(move.m_from);
-        m_board.removePiece(move.m_from);
+void Game::makeMove(Player& currentPlayer, Move& move, PositionType::MoveType mtype, Move* lastMove) {
+
+    Piece::Color pcolor = currentPlayer.getColor();
+    Piece* piece = m_board.getPiece(move.m_from);
+    m_board.removePiece(move.m_from);
+
+    if (mtype == PositionType::MoveType::KCASTLE) {
+        if (pcolor == Piece::Color::WHITE) {
+            Piece* rook = m_board.getPiece(Position(7, 7));
+            m_board.removePiece(Position(7, 7));
+
+            m_board.setPiece(piece, Position(7, 6));
+            m_board.setPiece(rook, Position(7, 5));
+            piece->setPos(Position(7, 6));
+            rook->setPos(Position(7, 5));
+            piece->setMoved(true);
+            rook->setMoved(true);
+        }
+        else if (pcolor == Piece::Color::BLACK) {
+            Piece* rook = m_board.getPiece(Position(0, 7));
+            m_board.removePiece(Position(0, 7));
+
+            m_board.setPiece(piece, Position(0, 6));
+            m_board.setPiece(rook, Position(0, 5));
+            piece->setPos(Position(0, 6));
+            rook->setPos(Position(0, 5));
+            piece->setMoved(true);
+            rook->setMoved(true);
+        }
+    }
+    else if (mtype == PositionType::MoveType::QCASTLE) {
+        if (pcolor == Piece::Color::WHITE) {
+            Piece* rook = m_board.getPiece(Position(7, 0));
+            m_board.removePiece(Position(7, 0));
+
+            m_board.setPiece(piece, Position(7, 2));
+            m_board.setPiece(rook, Position(7, 3));
+            piece->setPos(Position(7, 2));
+            rook->setPos(Position(7, 3));
+            piece->setMoved(true);
+            rook->setMoved(true);
+        }
+        else if (pcolor == Piece::Color::BLACK) {
+            Piece* rook = m_board.getPiece(Position(0, 0));
+            m_board.removePiece(Position(0, 0));
+
+            m_board.setPiece(piece, Position(0, 2));
+            m_board.setPiece(rook, Position(0, 3));
+            piece->setPos(Position(0, 2));
+            rook->setPos(Position(0, 3));
+            piece->setMoved(true);
+            rook->setMoved(true);
+        }
+    }
+    else if (mtype == PositionType::MoveType::ENPASS) {
         m_board.setPiece(piece, move.m_to);
         piece->setPos(move.m_to);
-        m_board.printBoard();
-    
+        int direction = (pcolor == Piece::Color::WHITE) ? 1 : -1;
+        m_board.removePiece(Position(move.m_to.row + direction, move.m_to.col));
+        piece->setMoved(true);
+    }
+    else if (mtype == PositionType::MoveType::PROM) {
+        std::cout << "Implement logic for promoting a pawn -> also for checking for promotion in valid moves" << std::endl;
+    }
+    else {
+        m_board.setPiece(piece, move.m_to);
+        piece->setPos(move.m_to);
         if (!piece->hasMoved()) {
             piece->setMoved(true);
         }
-        if (piece->getType().type == Piece::PieceType::KING) {
-            currentPlayer.setKingpos(move.m_to);
-        }
     }
+
+    if (piece->getType().type == Piece::PieceType::KING) {
+        currentPlayer.setKingpos(move.m_to);
+    }
+    m_board.printBoard();
+}
 //// need to add logic to remove the piece captured during en pessant from the board
 //if (lastMove &&
 //    state[lastMove->m_to.row][lastMove->m_to.col]->getType().type == Piece::PieceType::PAWN &&
@@ -432,24 +495,24 @@ void Game::makeMove(Player& currentPlayer, Move& move) {
 
 
 
-void test_001() {
-    Board chessBoard(8, 8);
-
-    std::vector<std::vector<Piece*>> state = chessBoard.getState();
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            if (state[i][j]) {
-                std::cout << state[i][j]->getIdent() << std::endl;
-                auto positions = state[i][j]->validMoves(state, nullptr);
-
-                for (auto& pos : positions) {
-                    std::cout << state[i][j]->getIdent() << " " << pos.first << " " << pos.second << std::endl;
-
-                }
-            }
-        }
-    }
-}
+//void test_001() {
+//    Board chessBoard(8, 8);
+//
+//    std::vector<std::vector<Piece*>> state = chessBoard.getState();
+//    for (int i = 0; i < 8; i++) {
+//        for (int j = 0; j < 8; j++) {
+//            if (state[i][j]) {
+//                std::cout << state[i][j]->getIdent() << std::endl;
+//                auto positions = state[i][j]->validMoves(state, nullptr);
+//
+//                for (auto& pos : positions) {
+//                    std::cout << state[i][j]->getIdent() << " " << pos.first << " " << pos.second << std::endl;
+//
+//                }
+//            }
+//        }
+//    }
+//}
 
 void test_002() {
 
