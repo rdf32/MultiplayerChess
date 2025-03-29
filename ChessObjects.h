@@ -167,6 +167,8 @@ public:
 
 	virtual ~Board();
 
+	void createPiece(Piece::PieceType::Type ptype, Piece::Color pcolor, Position& pos);
+
 	Piece* getPiece(const Position& pos);
 
 	void setPiece(Piece* piece, const Position& pos);

@@ -69,6 +69,36 @@ void Board::setPiece(Piece* piece, const Position& pos) {
     m_state[pos.row][pos.col] = piece;
 }
 
+void Board::createPiece(Piece::PieceType::Type ptype, Piece::Color pcolor, Position& pos) {
+    switch (ptype) {
+
+    case Piece::PieceType::QUEEN:
+        m_state[pos.row][pos.col] = new Queen(pcolor);
+        m_state[pos.row][pos.col]->setPos(pos);
+        break;
+
+    case Piece::PieceType::BISHOP:
+        m_state[pos.row][pos.col] = new Bishop(pcolor);
+        m_state[pos.row][pos.col]->setPos(pos);
+        break;
+
+    case Piece::PieceType::KNIGHT:
+        m_state[pos.row][pos.col] = new Knight(pcolor);
+        m_state[pos.row][pos.col]->setPos(pos);
+        break;
+
+    case Piece::PieceType::ROOK:
+        m_state[pos.row][pos.col] = new Rook(pcolor);
+        m_state[pos.row][pos.col]->setPos(pos);
+        break;
+
+    default:
+        std::cerr << "Invalid piece type!" << std::endl;
+        break;
+    }
+
+}
+
 void Board::initializeBoard() {// Place pawns for both colors
     for (int col = 0; col < m_cols; ++col) {
         m_state[1][col] = new Pawn(Pawn::Color::BLACK);
@@ -178,6 +208,8 @@ std::unordered_set<PositionType, positionType_hash> Pawn::validMoves(const std::
     //    Captures : Check diagonals for opponent pieces to capture.
     //    En passant : Handle this only if the pawn's last move was a two-square move and it is adjacent to an opponent's pawn.
 
+    // what about when its a capture and promotion
+
     std::unordered_set<PositionType, positionType_hash> positions;
 
     int direction = (m_color == Piece::Color::WHITE) ? -1 : 1;  // White moves up, black moves down
@@ -185,8 +217,12 @@ std::unordered_set<PositionType, positionType_hash> Pawn::validMoves(const std::
     int row = m_pos.row + direction;
     int col = m_pos.col;
 
-    if (row >= 0 && row < 8 && col >= 0 && col < 8 && state[row][col] == nullptr) {
+    if (row >= 1 && row < 7 && col >= 0 && col < 8 && state[row][col] == nullptr) {
         positions.insert({ { row, col }, PositionType::MoveType::STND });
+    } else if (row == 0 && m_color == Piece::Color::WHITE && col >= 0 && col < 8 && state[row][col] == nullptr) {
+        positions.insert({ { row, col }, PositionType::MoveType::PROM });
+    } else if (row == 7 && m_color == Piece::Color::BLACK && col >= 0 && col < 8 && state[row][col] == nullptr) {
+        positions.insert({ { row, col }, PositionType::MoveType::PROM });
     }
 
     if (!m_moved) {
@@ -206,7 +242,15 @@ std::unordered_set<PositionType, positionType_hash> Pawn::validMoves(const std::
         if (row >= 0 && row < 8 && col >= 0 && col < 8) {
             Piece* pieceAtNewPos = state[row][col];
             if (pieceAtNewPos != nullptr && pieceAtNewPos->getColor() != m_color) {
-                positions.insert({ { row, col }, PositionType::MoveType::CAPT }); // diagonal captures
+                if (row == 0 && m_color == Piece::Color::WHITE) {
+                    positions.insert({ { row, col }, PositionType::MoveType::PROM });
+                }
+                else if (row == 7 && m_color == Piece::Color::BLACK) {
+                    positions.insert({ { row, col }, PositionType::MoveType::PROM });
+                }
+                else {
+                    positions.insert({ { row, col }, PositionType::MoveType::CAPT }); // diagonal captures
+                }
             }
         }
     }

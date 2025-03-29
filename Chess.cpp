@@ -12,14 +12,14 @@ class Player {
 public:
 
     Player();
-    ~Player() = default;
+    ~Player();
     Piece::Color getColor();
     void setColor(Piece::Color color);
     Position getKingpos();
     void setKingpos(Position& pos);
     std::vector<Piece*> attackingPieces(const std::vector<std::vector<Piece*>>& state);
     std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>, position_hash> legalMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove);
-
+    std::vector<Piece*> capturedPieces;
 
 
 private:
@@ -29,6 +29,13 @@ private:
 };
 
 Player::Player(): m_color(Piece::Color::WHITE), m_kingPos(Position(0, 0)) {}
+
+Player::~Player() {
+    // Cleanup code (delete dynamically allocated pieces, etc.)
+    for (Piece* piece : capturedPieces) {
+        delete piece;
+    }
+}
 
 Piece::Color Player::getColor() {
     return m_color;
@@ -358,6 +365,7 @@ void printLegalMoves(const std::unordered_map<Position, std::unordered_set<Posit
 }
 
 void Game::playGame() {
+
     while (true) {
 
         Player currentPlayer = (m_turn == Piece::Color::WHITE) ? whitePieces : blackPieces;
@@ -369,6 +377,10 @@ void Game::playGame() {
 
         printLegalMoves(legalMoves);
 
+        if (legalMoves.empty()) {
+            std::cout << "Checkmate! " << (m_turn == Piece::Color::WHITE ? "Black " : "White ") << "wins!" << std::endl;
+            break;
+        }
 
         int startRow, startCol, endRow, endCol;
         m_board.printBoard();
@@ -400,81 +412,129 @@ void Game::playGame() {
 
 void Game::makeMove(Player& currentPlayer, Move& move, PositionType::MoveType mtype, Move* lastMove) {
 
+    // if its a capture or a promotion - need to actually delete the piece - currently that is not happening
+    // which is causing a memory leak 
     Piece::Color pcolor = currentPlayer.getColor();
     Piece* piece = m_board.getPiece(move.m_from);
     m_board.removePiece(move.m_from);
+
+    if (mtype == PositionType::MoveType::STND) {
+        m_board.setPiece(piece, move.m_to);
+        piece->setPos(move.m_to);
+        if (!piece->hasMoved()) {
+            piece->setMoved(true);
+        }
+        if (piece->getType().type == Piece::PieceType::KING) {
+            currentPlayer.setKingpos(move.m_to);
+        }
+    }
 
     if (mtype == PositionType::MoveType::KCASTLE) {
         if (pcolor == Piece::Color::WHITE) {
             Piece* rook = m_board.getPiece(Position(7, 7));
             m_board.removePiece(Position(7, 7));
-
             m_board.setPiece(piece, Position(7, 6));
             m_board.setPiece(rook, Position(7, 5));
             piece->setPos(Position(7, 6));
             rook->setPos(Position(7, 5));
             piece->setMoved(true);
             rook->setMoved(true);
+            currentPlayer.setKingpos(move.m_to);
         }
         else if (pcolor == Piece::Color::BLACK) {
             Piece* rook = m_board.getPiece(Position(0, 7));
             m_board.removePiece(Position(0, 7));
-
             m_board.setPiece(piece, Position(0, 6));
             m_board.setPiece(rook, Position(0, 5));
             piece->setPos(Position(0, 6));
             rook->setPos(Position(0, 5));
             piece->setMoved(true);
             rook->setMoved(true);
+            currentPlayer.setKingpos(move.m_to);
         }
     }
     else if (mtype == PositionType::MoveType::QCASTLE) {
         if (pcolor == Piece::Color::WHITE) {
             Piece* rook = m_board.getPiece(Position(7, 0));
             m_board.removePiece(Position(7, 0));
-
             m_board.setPiece(piece, Position(7, 2));
             m_board.setPiece(rook, Position(7, 3));
             piece->setPos(Position(7, 2));
             rook->setPos(Position(7, 3));
             piece->setMoved(true);
             rook->setMoved(true);
+            currentPlayer.setKingpos(move.m_to);
         }
         else if (pcolor == Piece::Color::BLACK) {
             Piece* rook = m_board.getPiece(Position(0, 0));
             m_board.removePiece(Position(0, 0));
-
             m_board.setPiece(piece, Position(0, 2));
             m_board.setPiece(rook, Position(0, 3));
             piece->setPos(Position(0, 2));
             rook->setPos(Position(0, 3));
             piece->setMoved(true);
             rook->setMoved(true);
+            currentPlayer.setKingpos(move.m_to);
         }
     }
     else if (mtype == PositionType::MoveType::ENPASS) {
         m_board.setPiece(piece, move.m_to);
         piece->setPos(move.m_to);
         int direction = (pcolor == Piece::Color::WHITE) ? 1 : -1;
+        Piece* capturedPiece = m_board.getPiece(Position(move.m_to.row + direction, move.m_to.col));
+        currentPlayer.capturedPieces.push_back(capturedPiece);
         m_board.removePiece(Position(move.m_to.row + direction, move.m_to.col));
         piece->setMoved(true);
     }
     else if (mtype == PositionType::MoveType::PROM) {
-        std::cout << "Implement logic for promoting a pawn -> also for checking for promotion in valid moves" << std::endl;
-    }
-    else {
+        int promSelection;
+        std::cout << "Select which piece to promote to { 0: Queen, 1: Knight, 2: Bishop, 3: Rook }" << std::endl;
+        std::cin >> promSelection;
+    
+        switch (promSelection) {
+
+        case 0:
+            m_board.createPiece(Piece::PieceType::QUEEN, pcolor, move.m_to);
+            delete piece;
+            break;
+
+        case 1:
+            m_board.createPiece(Piece::PieceType::KNIGHT, pcolor, move.m_to);
+            delete piece;
+            break;
+
+        case 2:
+            m_board.createPiece(Piece::PieceType::BISHOP, pcolor, move.m_to);
+            delete piece;
+            break;
+
+        case 3:
+            m_board.createPiece(Piece::PieceType::ROOK, pcolor, move.m_to);
+            delete piece;
+            break;
+
+        default:
+            std::cerr << "Invalid piece type!" << std::endl;
+            break;
+        }
+    } 
+    else if (mtype == PositionType::MoveType::CAPT){
+        Piece* capturedPiece = m_board.getPiece(move.m_to);
+        currentPlayer.capturedPieces.push_back(capturedPiece);
         m_board.setPiece(piece, move.m_to);
         piece->setPos(move.m_to);
         if (!piece->hasMoved()) {
             piece->setMoved(true);
         }
+        if (piece->getType().type == Piece::PieceType::KING) {
+            currentPlayer.setKingpos(move.m_to);
+        }
     }
 
-    if (piece->getType().type == Piece::PieceType::KING) {
-        currentPlayer.setKingpos(move.m_to);
-    }
     m_board.printBoard();
 }
+
+
 //// need to add logic to remove the piece captured during en pessant from the board
 //if (lastMove &&
 //    state[lastMove->m_to.row][lastMove->m_to.col]->getType().type == Piece::PieceType::PAWN &&
