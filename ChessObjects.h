@@ -205,6 +205,7 @@ public:
 	std::vector<Piece*> attackingPieces(const std::vector<std::vector<Piece*>>& state);
 	std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>, position_hash> legalMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove);
 	std::vector<Piece*> capturedPieces;
+	bool putsKingInCheck(const std::vector<std::vector<Piece*>>& state, const Move& move);
 
 
 private:

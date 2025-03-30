@@ -184,10 +184,10 @@ std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>
     else if (piecesAttacking.size() == 1) {
 
         std::unordered_set<std::pair<int, int>, pair_hash> attackedSquares;
-        std::unordered_set<std::pair<int, int>, pair_hash> attackingPiecePositions;
+        //std::unordered_set<std::pair<int, int>, pair_hash> attackingPiecePositions;
 
         for (const auto& piece : piecesAttacking) {
-            attackingPiecePositions.insert({ piece->getPos().row, piece->getPos().col });
+            //attackingPiecePositions.insert({ piece->getPos().row, piece->getPos().col });
             std::unordered_set<PositionType, positionType_hash> attPieceMoves = piece->lineOfAttack(state, kingPos);
             for (auto& pos : attPieceMoves) {
                 attackedSquares.insert(pos.pair);
@@ -208,17 +208,11 @@ std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>
                         }
                         else {
                             if (attackedSquares.find(pos.pair) != attackedSquares.end()) {
-                                legalPieceMoves[from_pos].insert(pos);
-                            } 
-                            
-                            if (attackingPiecePositions.find(pos.pair) != attackingPiecePositions.end()) {
-                                // its more complicated than just pinned, can still move in the direction of the pin
-                                // so not just a boolean here -> more so talks to something else and need to figure that out
-                                // if the most doesn't result in putting the king in check then its okay is really the point
-                                // need to figure out how to calculate that
-                                if (!piece->isPinned()) {
+                                Move move(from_pos, Position(pos.pair.first, pos.pair.second));
+                                if (!putsKingInCheck(state, move)) {
                                     legalPieceMoves[from_pos].insert(pos);
                                 }
+                                // if move puts king in check then skip
                             }
                             // or if piece can capture position of attacking piece, but only if that piece is not pinned
                             // checking if the piece is pinned maybe should be in the validMoves?????
@@ -238,6 +232,34 @@ std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>
 
     return legalPieceMoves;
 }
+
+bool Player::putsKingInCheck(const std::vector<std::vector<Piece*>>& state, const Move& move) {
+    
+    // make a copy for running the simulation
+    std::vector<std::vector<Piece*>> modifiedState = state;
+
+    Piece* piece = modifiedState[move.m_from.row][move.m_from.col];
+
+    // simulate move
+    modifiedState[move.m_to.row][move.m_to.col] = piece;
+    modifiedState[move.m_from.row][move.m_from.col] = nullptr;
+
+    std::vector<Piece*> piecesAttacking = attackingPieces(modifiedState);
+
+    bool isKingInCheck;
+    if (piecesAttacking.size() > 0) {
+        isKingInCheck = true;
+    }
+    else {
+        isKingInCheck = false;
+    }
+
+    // undo simulation
+    modifiedState[move.m_to.row][move.m_to.col] = nullptr;
+    modifiedState[move.m_from.row][move.m_from.col] = piece;
+
+    return isKingInCheck;
+};
 
 Game::Game(Player& player_1, Player& player_2) : m_board(8, 8), m_turn(Piece::Color::WHITE) {
 
@@ -360,7 +382,7 @@ void Game::playGame() {
 }
 
 void Game::makeMove(Player& currentPlayer, Move& move, PositionType::MoveType mtype, Move* lastMove) {
-
+    // could make this a switch of switches instead of if elses I am thinking
     Piece::Color pcolor = currentPlayer.getColor();
     Piece* piece = m_board.getPiece(move.m_from);
     m_board.removePiece(move.m_from);

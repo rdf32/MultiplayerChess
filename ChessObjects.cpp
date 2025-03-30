@@ -342,7 +342,7 @@ Piece::PieceType Pawn::getType() const {
 
 std::unordered_set<PositionType, positionType_hash> Pawn::lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) {
     std::unordered_set<PositionType, positionType_hash> attackedSquares;
-    attackedSquares.insert({ { kingPos.row, kingPos.col }, PositionType::MoveType::STND });
+    attackedSquares.insert({ { m_pos.row, m_pos.col }, PositionType::MoveType::STND });
     return attackedSquares;
 }
 
@@ -540,6 +540,7 @@ std::unordered_set<PositionType, positionType_hash> Queen::lineOfAttack(const st
             break; // Friendly piece blocks the move
         }
     }
+    attackedSquares.insert({ { m_pos.row, m_pos.col }, PositionType::MoveType::STND });
     return attackedSquares;
 }
 
@@ -618,6 +619,7 @@ std::unordered_set<PositionType, positionType_hash> Rook::lineOfAttack(const std
             break; // Friendly piece blocks the move
         }
     }
+    attackedSquares.insert({ { m_pos.row, m_pos.col }, PositionType::MoveType::STND });
     return attackedSquares;
 }
 
@@ -695,6 +697,7 @@ std::unordered_set<PositionType, positionType_hash> Bishop::lineOfAttack(const s
             break; // Friendly piece blocks the move
         }
     }
+    attackedSquares.insert({ { m_pos.row, m_pos.col }, PositionType::MoveType::STND });
     return attackedSquares;
 }
 
@@ -745,7 +748,7 @@ Piece::PieceType Knight::getType() const {
 
 std::unordered_set<PositionType, positionType_hash> Knight::lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) {
     std::unordered_set<PositionType, positionType_hash> attackedPieces;
-    attackedPieces.insert({ { kingPos.row, kingPos.col }, PositionType::MoveType::STND });
+    attackedPieces.insert({ { m_pos.row, m_pos.col }, PositionType::MoveType::STND });
     return attackedPieces;
 }
 
