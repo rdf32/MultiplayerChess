@@ -1,32 +1,7 @@
-﻿// MultiplayerChess.cpp : Defines the entry point for the application.
-//
-#include <random>
+﻿#include <random>
 #include <iostream>
-#include <queue> 
-#include <deque>
 #include <unordered_map>
-
 #include "ChessObjects.h"
-
-class Player {
-public:
-
-    Player();
-    ~Player();
-    Piece::Color getColor();
-    void setColor(Piece::Color color);
-    Position getKingpos();
-    void setKingpos(Position& pos);
-    std::vector<Piece*> attackingPieces(const std::vector<std::vector<Piece*>>& state);
-    std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>, position_hash> legalMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove);
-    std::vector<Piece*> capturedPieces;
-
-
-private:
-    Piece::Color m_color;
-    std::queue<Move*> moveQueue;
-    Position m_kingPos;
-};
 
 Player::Player(): m_color(Piece::Color::WHITE), m_kingPos(Position(0, 0)) {}
 
@@ -53,7 +28,6 @@ void Player::setKingpos(Position& pos) {
     m_kingPos = pos;
 }
 
-// some sort of bug in this function
 std::vector<Piece*> Player::attackingPieces(const std::vector<std::vector<Piece*>>& state) {
     std::vector<Piece*> piecesAttacking;
 
@@ -208,9 +182,20 @@ std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>
         }
     }
     else if (piecesAttacking.size() == 1) {
+        // this should actually not be an intersection of all piece moves from attacking piece
+        // it should actually only be the valid moves that are attacking the king
+        // this logic isnt exactly correct although the idea is in the right direction
+        // also valid moves of king needs to take into consideration it cant capture pieces that are defended
+        // if I do both of the above it should fix the current bugs 
+
+        // cant castle when in check anyways so dont worry about that
+
         std::unordered_set<std::pair<int, int>, pair_hash> attackedSquares;
         for (const auto& piece : piecesAttacking) {
-            std::unordered_set<PositionType, positionType_hash> attPieceMoves = piece->validMoves(state, lastMove);
+            // if knight, pawn -> return just kingPos
+            // if queen, bishop, rook -> add only to this the squares in the line of the attack
+            // lineOfAttack(Position& pos);
+            std::unordered_set<PositionType, positionType_hash> attPieceMoves = piece->lineOfAttack(state, kingPos);
             for (auto& pos : attPieceMoves) {
                 attackedSquares.insert(pos.pair);
             }
@@ -247,30 +232,6 @@ std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>
 
     return legalPieceMoves;
 }
-
-class Game {
-public:
-    Game(Player& player_1, Player& player_2);
-
-    virtual ~Game() = default;
-
-    void makeMove(Player& currentPlayer, Move& move, PositionType::MoveType mtype, Move* lastMove);
-
-    void playGame();
-
-    Move* getLastMove();
-
-    void addMoveToHistory(const Move& move);
-
-    std::vector<std::vector<Piece*>> getState();
-
-private:
-    Board m_board;
-    Piece::Color m_turn;
-    std::deque<Move> history; // push_front(), pop_front(), push_back(), pop_back()
-    Player whitePieces;
-    Player blackPieces;
-};
 
 Game::Game(Player& player_1, Player& player_2) : m_board(8, 8), m_turn(Piece::Color::WHITE) {
 
@@ -327,24 +288,6 @@ void Game::addMoveToHistory(const Move& move) {
 // if the move is not valid, pop another move from the queue or prompt another input (start from top)
 // if the move is a king, update king position of respective player
 
-
-//Piece
-//Color m_color;
-//Position m_pos;
-//bool m_moved;
-//std::string m_ident;
-
-// Player 
-//Piece::Color m_color;
-//std::queue<Move*> moveQueue;
-//Position kingPos;
-
-//Game
-//Board m_board;
-//Piece::Color m_turn;
-//std::deque<Move> history; // push_front(), pop_front(), push_back(), pop_back()
-//Player whitePieces;
-//Player blackPieces;
 
 void printLegalMoves(const std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>, position_hash>& legalMoves) {
     // Iterate through the map
@@ -412,8 +355,6 @@ void Game::playGame() {
 
 void Game::makeMove(Player& currentPlayer, Move& move, PositionType::MoveType mtype, Move* lastMove) {
 
-    // if its a capture or a promotion - need to actually delete the piece - currently that is not happening
-    // which is causing a memory leak 
     Piece::Color pcolor = currentPlayer.getColor();
     Piece* piece = m_board.getPiece(move.m_from);
     m_board.removePiece(move.m_from);
@@ -432,48 +373,64 @@ void Game::makeMove(Player& currentPlayer, Move& move, PositionType::MoveType mt
     if (mtype == PositionType::MoveType::KCASTLE) {
         if (pcolor == Piece::Color::WHITE) {
             Piece* rook = m_board.getPiece(Position(7, 7));
+
             m_board.removePiece(Position(7, 7));
             m_board.setPiece(piece, Position(7, 6));
             m_board.setPiece(rook, Position(7, 5));
+
             piece->setPos(Position(7, 6));
-            rook->setPos(Position(7, 5));
             piece->setMoved(true);
+
+            rook->setPos(Position(7, 5));
             rook->setMoved(true);
+
             currentPlayer.setKingpos(move.m_to);
         }
         else if (pcolor == Piece::Color::BLACK) {
             Piece* rook = m_board.getPiece(Position(0, 7));
+
             m_board.removePiece(Position(0, 7));
             m_board.setPiece(piece, Position(0, 6));
             m_board.setPiece(rook, Position(0, 5));
+
             piece->setPos(Position(0, 6));
-            rook->setPos(Position(0, 5));
             piece->setMoved(true);
+
+            rook->setPos(Position(0, 5));
             rook->setMoved(true);
+
             currentPlayer.setKingpos(move.m_to);
         }
     }
     else if (mtype == PositionType::MoveType::QCASTLE) {
         if (pcolor == Piece::Color::WHITE) {
             Piece* rook = m_board.getPiece(Position(7, 0));
+
             m_board.removePiece(Position(7, 0));
             m_board.setPiece(piece, Position(7, 2));
             m_board.setPiece(rook, Position(7, 3));
+
             piece->setPos(Position(7, 2));
-            rook->setPos(Position(7, 3));
             piece->setMoved(true);
+
+            rook->setPos(Position(7, 3));
             rook->setMoved(true);
+
             currentPlayer.setKingpos(move.m_to);
         }
         else if (pcolor == Piece::Color::BLACK) {
             Piece* rook = m_board.getPiece(Position(0, 0));
+
             m_board.removePiece(Position(0, 0));
             m_board.setPiece(piece, Position(0, 2));
             m_board.setPiece(rook, Position(0, 3));
+
             piece->setPos(Position(0, 2));
-            rook->setPos(Position(0, 3));
             piece->setMoved(true);
+
+            rook->setPos(Position(0, 3));
             rook->setMoved(true);
+
             currentPlayer.setKingpos(move.m_to);
         }
     }
@@ -485,6 +442,7 @@ void Game::makeMove(Player& currentPlayer, Move& move, PositionType::MoveType mt
         currentPlayer.capturedPieces.push_back(capturedPiece);
         m_board.removePiece(Position(move.m_to.row + direction, move.m_to.col));
         piece->setMoved(true);
+
     }
     else if (mtype == PositionType::MoveType::PROM) {
         int promSelection;
@@ -535,45 +493,6 @@ void Game::makeMove(Player& currentPlayer, Move& move, PositionType::MoveType mt
 }
 
 
-//// need to add logic to remove the piece captured during en pessant from the board
-//if (lastMove &&
-//    state[lastMove->m_to.row][lastMove->m_to.col]->getType().type == Piece::PieceType::PAWN &&
-//    state[lastMove->m_to.row][lastMove->m_to.col]->getColor() != m_color &&
-//    abs(lastMove->m_from.row - lastMove->m_to.row) == 2 &&
-//    lastMove->m_to.row == m_pos.row) {
-//    if ((m_pos.col + 1 == lastMove->m_to.col) || (m_pos.col - 1 == lastMove->m_to.col)) {
-//        row = m_pos.row + direction;
-//        col = lastMove->m_to.col;
-//        positions.insert({ row, col });
-//    }
-//}
-
-//return positions;
-
-
-
-
-
-
-//void test_001() {
-//    Board chessBoard(8, 8);
-//
-//    std::vector<std::vector<Piece*>> state = chessBoard.getState();
-//    for (int i = 0; i < 8; i++) {
-//        for (int j = 0; j < 8; j++) {
-//            if (state[i][j]) {
-//                std::cout << state[i][j]->getIdent() << std::endl;
-//                auto positions = state[i][j]->validMoves(state, nullptr);
-//
-//                for (auto& pos : positions) {
-//                    std::cout << state[i][j]->getIdent() << " " << pos.first << " " << pos.second << std::endl;
-//
-//                }
-//            }
-//        }
-//    }
-//}
-
 void test_002() {
 
     Player player_1;
@@ -584,47 +503,6 @@ void test_002() {
 
 }
 
-// could have makeMove return a boolean on success or false on not
-//void Game::makeMove(Move& move) {
-//    Piece* piece = m_board.getPiece(move.m_from);
-//    if (piece) {
-//        if (m_turn == piece->getColor()) {
-//            // after each move need to check if put a king in check and or if checkmate was performed
-//            // maybe create an attacked board -> binary 2d array stating if the location is attacked or not
-//            // then check if the king square is attacked to see if in check
-//            // can only make a move that isn't a king move if king isn't in check
-//            // check if it is a valid move here as well
-//            // check what type of move it is here looking for certain cases
-//            // looking for en pessant, promotion, castling, or standard
-//            // could maybe make a member function on all the pieces that returns the type of move
-//            // call the member function moveType(Position& from, Position& to)
-//            // if gonna make a validMoves() function for Piece -> could call it every time
-//            // validMoves should create an internal set of current valid moves that could be checked against
-//            // setPiece is called -> would just need to also use setPiece during initialize Board
-//            // need to invalid to the move types
-//            // then could set up a switch here with the default for standard moves
-//            // then other cases for the other types of moves because some require moving two pieces
-//            // need to handle promotions - but probably will have board handle this
-//
-//
-//            m_board.removePiece(move.m_from);
-//            m_board.setPiece(piece, move.m_to);
-//            piece->setPos(move.m_to);
-//
-//            if (!piece->hasMoved()) {
-//                piece->setMoved(true);
-//            }
-//            m_turn = m_turn == Piece::Color::WHITE ? Piece::Color::BLACK : Piece::Color::WHITE;
-//        }
-//        else {
-//            std::cout << "That is not your piece or not your turn..." << std::endl;
-//        }
-//
-//    }
-//    else {
-//        std::cout << "No piece on that square..." << std::endl;
-//    }
-//}
 
 int main() {
 

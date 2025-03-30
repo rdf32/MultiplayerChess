@@ -160,19 +160,17 @@ void Board::printBoard() const {
 }
 
 // Constructor definition for Piece Types
-Piece::Piece(Color color, std::string ident) : m_color(color), m_pos(0, 0), m_moved(false), m_ident(ident) {}
+Piece::Piece(Color color, std::string ident) : m_color(color), m_pos(0, 0), m_moved(false), m_ident(ident), m_defended(false) {}
 
 // Getter for position
 Position Piece::getPos() const {
     return m_pos;
 }
 
-// Getter for color
 Piece::Color Piece::getColor() const {
     return m_color;
 }
 
-// Setter for position
 void Piece::setPos(const Position& pos) {
     m_pos = pos;
 }
@@ -189,26 +187,166 @@ std::string Piece::getIdent() const {
     return m_ident;
 }
 
+bool Piece::isDefended(const std::vector<std::vector<Piece*>>& state) {
+    Position position = getPos();
+
+    // check for defending pawns
+    int pawn_direction = (m_color == Piece::Color::WHITE) ? 1 : -1;  // White moves up, black moves down
+    for (int offset : {-1, 1}) {
+        int r = position.row + pawn_direction;
+        int c = position.col + offset;
+        if (r < 0 || r >= 8 || c < 0 || c >= 8) {
+            continue; // Skip invalid positions off the board
+        }
+        Piece* pieceAtNewPos = state[r][c];
+        if (pieceAtNewPos == nullptr) {
+            continue;
+        }
+        if (state[r][c]->getType().type == Piece::PieceType::PAWN &&
+            state[r][c]->getColor() == m_color) {
+            return true;
+        }
+    }
+    // check for defending knights
+    std::vector<std::pair<int, int>> knight_directions = {
+        {-2, 1}, {-2, -1}, {2, -1}, {2, 1},  // Vertical L-shapes
+        {-1, 2}, {-1, -2}, {1, -2}, {1, 2}   // Horizontal L-shapes
+    };
+
+    for (const auto& direction : knight_directions) {
+        int r = position.row + direction.first;
+        int c = position.col + direction.second;
+
+        // Check if the position is off the board
+        if (r < 0 || r >= 8 || c < 0 || c >= 8) {
+            continue; // Skip invalid positions off the board
+        }
+
+        // Check the piece at the new position
+        Piece* pieceAtNewPos = state[r][c];
+        if (pieceAtNewPos == nullptr) {
+            continue;
+        }
+        if (pieceAtNewPos->getType().type == Piece::PieceType::KNIGHT &&
+            pieceAtNewPos->getColor() == m_color) {
+            return true; 
+        }
+    }
+
+    // check for attacking diagonal
+    std::vector<std::pair<int, int>> diagonal_directions = {
+        {-1, -1}, {-1, 1}, {1, -1}, {1, 1}
+    };
+
+    for (const auto& direction : diagonal_directions) {
+        int r = position.row;
+        int c = position.col;
+
+        while (true) {
+            r += direction.first;
+            c += direction.second;
+
+            // Check if the position is off the board
+            if (r < 0 || r >= 8 || c < 0 || c >= 8) {
+                break; // Outside the board, stop moving
+            }
+
+            // Check the piece at the new position
+            Piece* pieceAtNewPos = state[r][c];
+            if (pieceAtNewPos == nullptr) {
+                continue;
+            }
+            if (pieceAtNewPos->getColor() == m_color) {
+                if (pieceAtNewPos->getType().type == Piece::PieceType::BISHOP ||
+                    pieceAtNewPos->getType().type == Piece::PieceType::QUEEN) {
+                    return true;
+                }
+                else {
+                    break;
+                }
+            }
+            else {
+                break; // Friendly piece blocks the move
+            }
+        }
+    }
+
+    // check for attacking files and ranks
+    std::vector<std::pair<int, int>> rankfile_directions = {
+        {-1, 0}, {1, 0}, {0, 1}, {0, -1}
+    };
+
+    for (const auto& direction : rankfile_directions) {
+        int r = position.row;
+        int c = position.col;
+
+        while (true) {
+            r += direction.first;
+            c += direction.second;
+
+            // Check if the position is off the board
+            if (r < 0 || r >= 8 || c < 0 || c >= 8) {
+                break; // Outside the board, stop moving
+            }
+
+            // Check the piece at the new position
+            Piece* pieceAtNewPos = state[r][c];
+            if (pieceAtNewPos == nullptr) {
+                continue;
+            }
+            if (pieceAtNewPos->getColor() == m_color) {
+                if (pieceAtNewPos->getType().type == Piece::PieceType::ROOK ||
+                    pieceAtNewPos->getType().type == Piece::PieceType::QUEEN) {
+                    return true;
+                }
+                else {
+                    break;
+                }
+            }
+            else {
+                break; // Friendly piece blocks the move
+            }
+        }
+    }
+
+    return false;
+}
+
+std::pair<int, int> calcDirectionToKing(const Position& piecePos, const Position& kingPos) {
+    int row_out, col_out;
+    int row_diff = kingPos.row - piecePos.row;
+    int col_diff = kingPos.col - piecePos.col;
+
+    if (row_diff == 0) {
+        row_out = 0;
+    }
+    else {
+        row_out = row_diff / abs(row_diff);
+    }
+
+    if (col_diff == 0) {
+        col_out = 0;
+    }
+    else {
+        col_out = col_diff / abs(col_diff);
+    }
+
+    return { row_out, col_out };
+}
+
 Pawn::Pawn(Color color, std::string ident) : Piece(color, ident) {}
 
 Piece::PieceType Pawn::getType() const {
     return { PieceType::PAWN };
 }
 
+std::unordered_set<PositionType, positionType_hash> Pawn::lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) {
+    std::unordered_set<PositionType, positionType_hash> attackedSquares;
+    attackedSquares.insert({ { kingPos.row, kingPos.col }, PositionType::MoveType::STND });
+    return attackedSquares;
+}
+
 std::unordered_set<PositionType, positionType_hash> Pawn::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
-
-    // need to check for:
-    // first move : move one square or two
-    // capture diagonal
-    // promotion - can be a capture and a promotion at the same time so should be separate checks
-
-
-    //Regular moves : Check if the square directly in front is empty or not.
-    //    Double moves : On the pawn's first move, check if both the square directly in front and the square two squares in front are empty.
-    //    Captures : Check diagonals for opponent pieces to capture.
-    //    En passant : Handle this only if the pawn's last move was a two-square move and it is adjacent to an opponent's pawn.
-
-    // what about when its a capture and promotion
 
     std::unordered_set<PositionType, positionType_hash> positions;
 
@@ -276,6 +414,7 @@ Piece::PieceType King::getType() const {
     return { PieceType::KING };
 }
 
+
 std::unordered_set<PositionType, positionType_hash> King::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
 
     //The king and the rook involved must not have moved yet.
@@ -283,6 +422,7 @@ std::unordered_set<PositionType, positionType_hash> King::validMoves(const std::
     //    The king must not be in check.
     //    The king must not pass through a square that is attacked by an enemy piece.
     //    The king must not end up in check after castling.
+    //    The king can not capture a piece if it is defended
     std::unordered_set<PositionType, positionType_hash> positions;
 
     std::vector<std::pair<int, int>> directions = {
@@ -301,10 +441,10 @@ std::unordered_set<PositionType, positionType_hash> King::validMoves(const std::
                 if (piece->getType().type == Piece::PieceType::KING) {
                     Position pos = piece->getPos();
                     attackedPositions = {
-                        {{pos.row, pos.col - 1}, PositionType::MoveType::STND }, {{ pos.row, pos.col + 1 }, PositionType::MoveType::STND }, 
-                        {{ pos.row - 1, pos.col }, PositionType::MoveType::STND }, {{ pos.row + 1, pos.col }, PositionType::MoveType::STND },
-                        {{pos.row - 1, pos.col - 1}, PositionType::MoveType::STND }, {{pos.row - 1, pos.col + 1}, PositionType::MoveType::STND }, 
-                        {{pos.row + 1, pos.col - 1}, PositionType::MoveType::STND }, {{pos.row + 1, pos.col + 1}, PositionType::MoveType::STND}
+                        {{pos.row, pos.col - 1}, PositionType::MoveType::STND}, {{pos.row, pos.col + 1 }, PositionType::MoveType::STND}, 
+                        {{pos.row - 1, pos.col}, PositionType::MoveType::STND}, {{pos.row + 1, pos.col }, PositionType::MoveType::STND},
+                        {{pos.row - 1, pos.col - 1}, PositionType::MoveType::STND}, {{pos.row - 1, pos.col + 1}, PositionType::MoveType::STND}, 
+                        {{pos.row + 1, pos.col - 1}, PositionType::MoveType::STND}, {{pos.row + 1, pos.col + 1}, PositionType::MoveType::STND}
                     };
                 }
                 else {
@@ -331,7 +471,10 @@ std::unordered_set<PositionType, positionType_hash> King::validMoves(const std::
                 positions.insert({ { r, c }, PositionType::MoveType::STND }); // Empty square, valid move or enemy piece
             }
             else if (pieceAtNewPos->getColor() != m_color) {
-                positions.insert({ { r, c }, PositionType::MoveType::CAPT });
+                if (!pieceAtNewPos->isDefended(state)) {
+                    positions.insert({ { r, c }, PositionType::MoveType::CAPT });
+                }
+                // can only capture if the piece is not defended
             }
         }
     }
@@ -366,6 +509,38 @@ Queen::Queen(Color color, std::string ident) : Piece(color, ident) {}
 
 Piece::PieceType Queen::getType() const {
     return { PieceType::QUEEN };
+}
+
+std::unordered_set<PositionType, positionType_hash> Queen::lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) {
+    std::unordered_set<PositionType, positionType_hash> attackedSquares;
+    std::pair<int, int> direction = calcDirectionToKing(getPos(), kingPos);
+
+    int r = m_pos.row;
+    int c = m_pos.col;
+
+    while (true) {
+        r += direction.first;
+        c += direction.second;
+
+        // Check if the position is off the board
+        if (r < 0 || r >= 8 || c < 0 || c >= 8) {
+            break; // Outside the board, stop moving
+        }
+
+        // Check the piece at the new position
+        Piece* pieceAtNewPos = state[r][c];
+        if (pieceAtNewPos == nullptr) {
+            attackedSquares.insert({ { r, c }, PositionType::MoveType::STND }); // Empty square, valid move
+        }
+        else if (pieceAtNewPos->getColor() != m_color) {
+            attackedSquares.insert({ { r, c }, PositionType::MoveType::CAPT }); // Opponent piece, valid capture
+            break; // Stop moving after capturing
+        }
+        else if (pieceAtNewPos->getColor() == m_color) {
+            break; // Friendly piece blocks the move
+        }
+    }
+    return attackedSquares;
 }
 
 std::unordered_set<PositionType, positionType_hash> Queen::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
@@ -414,6 +589,38 @@ Piece::PieceType Rook::getType() const {
     return { PieceType::ROOK };
 }
 
+std::unordered_set<PositionType, positionType_hash> Rook::lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) {
+    std::unordered_set<PositionType, positionType_hash> attackedSquares;
+    std::pair<int, int> direction = calcDirectionToKing(getPos(), kingPos);
+
+    int r = m_pos.row;
+    int c = m_pos.col;
+
+    while (true) {
+        r += direction.first;
+        c += direction.second;
+
+        // Check if the position is off the board
+        if (r < 0 || r >= 8 || c < 0 || c >= 8) {
+            break; // Outside the board, stop moving
+        }
+
+        // Check the piece at the new position
+        Piece* pieceAtNewPos = state[r][c];
+        if (pieceAtNewPos == nullptr) {
+            attackedSquares.insert({ { r, c }, PositionType::MoveType::STND }); // Empty square, valid move
+        }
+        else if (pieceAtNewPos->getColor() != m_color) {
+            attackedSquares.insert({ { r, c }, PositionType::MoveType::CAPT }); // Opponent piece, valid capture
+            break; // Stop moving after capturing
+        }
+        else if (pieceAtNewPos->getColor() == m_color) {
+            break; // Friendly piece blocks the move
+        }
+    }
+    return attackedSquares;
+}
+
 std::unordered_set<PositionType, positionType_hash> Rook::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
 
     std::unordered_set<PositionType, positionType_hash> positions;
@@ -459,6 +666,38 @@ Piece::PieceType Bishop::getType() const {
     return { PieceType::BISHOP };
 }
 
+std::unordered_set<PositionType, positionType_hash> Bishop::lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) {
+    std::unordered_set<PositionType, positionType_hash> attackedSquares;
+    std::pair<int, int> direction = calcDirectionToKing(getPos(), kingPos);
+
+    int r = m_pos.row;
+    int c = m_pos.col;
+
+    while (true) {
+        r += direction.first;
+        c += direction.second;
+
+        // Check if the position is off the board
+        if (r < 0 || r >= 8 || c < 0 || c >= 8) {
+            break; // Outside the board, stop moving
+        }
+
+        // Check the piece at the new position
+        Piece* pieceAtNewPos = state[r][c];
+        if (pieceAtNewPos == nullptr) {
+            attackedSquares.insert({ { r, c }, PositionType::MoveType::STND }); // Empty square, valid move
+        }
+        else if (pieceAtNewPos->getColor() != m_color) {
+            attackedSquares.insert({ { r, c }, PositionType::MoveType::CAPT }); // Opponent piece, valid capture
+            break; // Stop moving after capturing
+        }
+        else if (pieceAtNewPos->getColor() == m_color) {
+            break; // Friendly piece blocks the move
+        }
+    }
+    return attackedSquares;
+}
+
 std::unordered_set<PositionType, positionType_hash> Bishop::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {
     
     std::unordered_set<PositionType, positionType_hash> positions;
@@ -498,11 +737,16 @@ std::unordered_set<PositionType, positionType_hash> Bishop::validMoves(const std
     return positions;
 }
 
-
 Knight::Knight(Color color, std::string ident) : Piece(color, ident) {}
 
 Piece::PieceType Knight::getType() const {
     return { PieceType::KNIGHT };
+}
+
+std::unordered_set<PositionType, positionType_hash> Knight::lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) {
+    std::unordered_set<PositionType, positionType_hash> attackedPieces;
+    attackedPieces.insert({ { kingPos.row, kingPos.col }, PositionType::MoveType::STND });
+    return attackedPieces;
 }
 
 std::unordered_set<PositionType, positionType_hash> Knight::validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) {

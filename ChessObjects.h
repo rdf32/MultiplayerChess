@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include <queue> 
+#include <deque>
 #include <functional>
 #include <unordered_set>
 
@@ -54,21 +56,10 @@ struct Move {
 	Position m_from;   // Position from where the piece is moving
 	Position m_to;     // Position where the piece is moving to
 
-	// this should probably have more information
-	// all information to rebuild the piece if needed like color and type
-	// also might need to have from piece type and to piece type in the case of promotion
-
-	// Constructor definition
 	Move(Position from, Position to);
-
-	// Default destructor (optional)
 	~Move() = default;
-
 };
 
-//struct move_hash {
-//	size_t operator()(const Move& move) const;
-//};
 
 class Piece {
 
@@ -99,12 +90,17 @@ public:
 
 	void setPos(const Position& pos);
 
+	bool isDefended(const std::vector<std::vector<Piece*>>& state);
+
+	virtual std::unordered_set<PositionType, positionType_hash> lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) = 0;
+
 
 protected:
 	Color m_color;
 	Position m_pos;
 	bool m_moved;
 	std::string m_ident;
+	bool m_defended;
 };
 
 class Pawn : public Piece {
@@ -113,6 +109,7 @@ public:
 	// Constructor for Pawn
 	Pawn(Color color, std::string ident = "P");
 	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) override;
 	PieceType getType() const override;
 };
 
@@ -122,6 +119,11 @@ public:
 	// Constructor for King
 	King(Color color, std::string ident = "K");
 	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> lineOfAttack(
+		const std::vector<std::vector<Piece*>>& board, const Position& pos) override {
+		// Empty implementation for King
+		return std::unordered_set<PositionType, positionType_hash>();
+	}
 	PieceType getType() const override;
 };
 
@@ -131,6 +133,7 @@ public:
 	// Constructor for Queen
 	Queen(Color color, std::string ident = "Q");
 	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) override;
 	PieceType getType() const override;
 };
 
@@ -140,6 +143,7 @@ public:
 	// Constructor for Rook
 	Rook(Color color, std::string ident = "R");
 	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) override;
 	PieceType getType() const override;
 };
 
@@ -149,6 +153,7 @@ public:
 	// Constructor for Pawn
 	Bishop(Color color, std::string ident = "B");
 	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) override;
 	PieceType getType() const override;
 };
 
@@ -158,6 +163,7 @@ public:
 	// Constructor for Knight
 	Knight(Color color, std::string ident = "N");
 	std::unordered_set<PositionType, positionType_hash> validMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove) override;
+	std::unordered_set<PositionType, positionType_hash> lineOfAttack(const std::vector<std::vector<Piece*>>& state, const Position& kingPos) override;
 	PieceType getType() const override;
 };
 
@@ -185,5 +191,49 @@ private:
 	int m_rows, m_cols;
 	std::vector<std::vector<Piece*>> m_state;
 
+};
+
+class Player {
+public:
+
+	Player();
+	~Player();
+	Piece::Color getColor();
+	void setColor(Piece::Color color);
+	Position getKingpos();
+	void setKingpos(Position& pos);
+	std::vector<Piece*> attackingPieces(const std::vector<std::vector<Piece*>>& state);
+	std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>, position_hash> legalMoves(const std::vector<std::vector<Piece*>>& state, Move* lastMove);
+	std::vector<Piece*> capturedPieces;
+
+
+private:
+	Piece::Color m_color;
+	std::queue<Move*> moveQueue;
+	Position m_kingPos;
+};
+
+class Game {
+public:
+	Game(Player& player_1, Player& player_2);
+
+	virtual ~Game() = default;
+
+	void makeMove(Player& currentPlayer, Move& move, PositionType::MoveType mtype, Move* lastMove);
+
+	void playGame();
+
+	Move* getLastMove();
+
+	void addMoveToHistory(const Move& move);
+
+	std::vector<std::vector<Piece*>> getState();
+
+private:
+	Board m_board;
+	Piece::Color m_turn;
+	std::deque<Move> history; // push_front(), pop_front(), push_back(), pop_back()
+	Player whitePieces;
+	Player blackPieces;
 };
 
