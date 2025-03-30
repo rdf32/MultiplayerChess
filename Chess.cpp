@@ -182,19 +182,12 @@ std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>
         }
     }
     else if (piecesAttacking.size() == 1) {
-        // this should actually not be an intersection of all piece moves from attacking piece
-        // it should actually only be the valid moves that are attacking the king
-        // this logic isnt exactly correct although the idea is in the right direction
-        // also valid moves of king needs to take into consideration it cant capture pieces that are defended
-        // if I do both of the above it should fix the current bugs 
-
-        // cant castle when in check anyways so dont worry about that
 
         std::unordered_set<std::pair<int, int>, pair_hash> attackedSquares;
+        std::unordered_set<std::pair<int, int>, pair_hash> attackingPiecePositions;
+
         for (const auto& piece : piecesAttacking) {
-            // if knight, pawn -> return just kingPos
-            // if queen, bishop, rook -> add only to this the squares in the line of the attack
-            // lineOfAttack(Position& pos);
+            attackingPiecePositions.insert({ piece->getPos().row, piece->getPos().col });
             std::unordered_set<PositionType, positionType_hash> attPieceMoves = piece->lineOfAttack(state, kingPos);
             for (auto& pos : attPieceMoves) {
                 attackedSquares.insert(pos.pair);
@@ -206,7 +199,7 @@ std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>
                 if (piece == nullptr) {
                     continue;
                 }
-                else if (piece->getColor() == m_color) {
+                if (piece->getColor() == m_color) {
                     Position from_pos = piece->getPos();
                     std::unordered_set<PositionType, positionType_hash> pieceMoves = piece->validMoves(state, lastMove);
                     for (const auto& pos : pieceMoves) {
@@ -216,7 +209,20 @@ std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>
                         else {
                             if (attackedSquares.find(pos.pair) != attackedSquares.end()) {
                                 legalPieceMoves[from_pos].insert(pos);
+                            } 
+                            
+                            if (attackingPiecePositions.find(pos.pair) != attackingPiecePositions.end()) {
+                                // its more complicated than just pinned, can still move in the direction of the pin
+                                // so not just a boolean here -> more so talks to something else and need to figure that out
+                                // if the most doesn't result in putting the king in check then its okay is really the point
+                                // need to figure out how to calculate that
+                                if (!piece->isPinned()) {
+                                    legalPieceMoves[from_pos].insert(pos);
+                                }
                             }
+                            // or if piece can capture position of attacking piece, but only if that piece is not pinned
+                            // checking if the piece is pinned maybe should be in the validMoves?????
+                            // how to check if a piece is pinned???
                         }
                     }
                 }
