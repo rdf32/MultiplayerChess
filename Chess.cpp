@@ -176,7 +176,13 @@ std::unordered_map<Position, std::unordered_set<PositionType, positionType_hash>
                 else if (piece->getColor() == m_color) {
                     Position from_pos = piece->getPos();
                     std::unordered_set<PositionType, positionType_hash> pieceMoves = piece->validMoves(state, lastMove);
-                    legalPieceMoves[from_pos].insert(pieceMoves.begin(), pieceMoves.end());
+
+                    for (const auto& pos : pieceMoves) {
+                        Move move(from_pos, Position(pos.pair.first, pos.pair.second));
+                        if (!putsKingInCheck(state, move)) {
+                            legalPieceMoves[from_pos].insert(pos);
+                        }
+                    }
                 }
             }
         }
